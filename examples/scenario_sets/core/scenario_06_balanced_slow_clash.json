@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "battlefield": { "width": 7, "height": 6, "round_limit": 45 },
+  "battle_options": { "seed": 106 },
+  "creatures": {
+    "pikeman": { "attack": 4, "defense": 5, "min_damage": 1, "max_damage": 3, "health": 10, "speed": 4, "initiative": 6 },
+    "griffin": { "attack": 8, "defense": 8, "min_damage": 3, "max_damage": 6, "health": 25, "speed": 6, "initiative": 9, "abilities": ["flying", "double_strike"] }
+  },
+  "armies": [
+    { "owner": 1, "stacks": [
+      { "stack_id": "p1_pikemen_a", "creature": "pikeman", "count": 24, "position": { "q": 1, "r": 1 } },
+      { "stack_id": "p1_pikemen_b", "creature": "pikeman", "count": 20, "position": { "q": 1, "r": 4 } },
+      { "stack_id": "p1_griffins", "creature": "griffin", "count": 2, "position": { "q": 0, "r": 2 } }
+    ]},
+    { "owner": 2, "stacks": [
+      { "stack_id": "p2_pikemen_a", "creature": "pikeman", "count": 24, "position": { "q": 5, "r": 1 } },
+      { "stack_id": "p2_pikemen_b", "creature": "pikeman", "count": 20, "position": { "q": 5, "r": 4 } },
+      { "stack_id": "p2_griffins", "creature": "griffin", "count": 2, "position": { "q": 6, "r": 2 } }
+    ]}
+  ]
+}

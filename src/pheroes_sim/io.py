@@ -16,7 +16,10 @@ def load_json(path: str | Path) -> dict[str, Any]:
 
 
 def load_scenario(path: str | Path) -> BattleState:
-    data = load_json(path)
+    return load_scenario_data(load_json(path))
+
+
+def load_scenario_data(data: dict[str, Any]) -> BattleState:
     if data.get("schema_version") != 1:
         raise ValueError("Unsupported scenario schema_version")
 
@@ -57,6 +60,16 @@ def load_scenario(path: str | Path) -> BattleState:
             stacks[stack.stack_id] = stack
 
     return BattleState(battlefield=battlefield, stacks=stacks)
+
+
+def list_scenario_files(path: str | Path) -> list[Path]:
+    root = Path(path)
+    if not root.exists() or not root.is_dir():
+        raise ValueError(f"Scenario set directory not found: {root}")
+    files = sorted(item for item in root.iterdir() if item.is_file() and item.suffix.lower() == ".json")
+    if not files:
+        raise ValueError(f"No scenario JSON files found in: {root}")
+    return files
 
 
 def load_strategy(path: str | Path, *, seed_override: int | None = None) -> Strategy:

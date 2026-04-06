@@ -3,11 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import random
 from time import perf_counter
 
 from .batching import PlayerBatchStats, SideSplitStats, normal_approximation_ci
 from .engine import BattleSimulator
-from .io import JsonlLogger, load_json, load_reward_tracker, load_scenario, load_strategy
+from .io import JsonlLogger, list_scenario_files, load_json, load_reward_tracker, load_scenario, load_strategy
 from .rendering import render_ascii_board
 
 
@@ -17,6 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_parser = subparsers.add_parser("run", help="Run a battle simulation")
     _add_common_simulation_args(run_parser)
+    run_parser.add_argument("--scenario", required=True, help="Path to scenario JSON")
     run_parser.add_argument("--log", required=True, help="Path to JSONL event log")
     run_parser.add_argument("--stats", action="store_true", help="Include simulation timing stats in the summary")
     run_parser.add_argument(
@@ -29,6 +31,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     batch_parser = subparsers.add_parser("batch", help="Run repeated battle simulations")
     _add_common_simulation_args(batch_parser)
+    batch_scenarios = batch_parser.add_mutually_exclusive_group(required=True)
+    batch_scenarios.add_argument("--scenario", help="Path to scenario JSON")
+    batch_scenarios.add_argument("--scenario-set", help="Directory containing scenario JSON files")
     batch_parser.add_argument("--num-sims", type=int, default=100, help="Number of simulations to run")
     batch_parser.add_argument("--seed", type=int, help="Batch seed used to derive per-simulation seeds")
     batch_parser.add_argument("--stats", action="store_true", help="Print batch timing and throughput stats")
@@ -36,7 +41,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _add_common_simulation_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--scenario", required=True, help="Path to scenario JSON")
     parser.add_argument("--player1-ai", required=True, help="Path to player 1 AI JSON")
     parser.add_argument("--player2-ai", required=True, help="Path to player 2 AI JSON")
     parser.add_argument("--reward-config", help="Optional reward weights JSON")
@@ -69,6 +73,12 @@ def _write_summary_out(path_str: str | None, payload: dict[str, object]) -> None
     path = Path(path_str)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _resolve_batch_scenarios(args: argparse.Namespace) -> list[Path]:
+    if args.scenario:
+        return [Path(args.scenario)]
+    return list_scenario_files(args.scenario_set)
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -128,8 +138,11 @@ def cmd_run(args: argparse.Namespace) -> int:
 def cmd_batch(args: argparse.Namespace) -> int:
     started_at = perf_counter()
     total_turns = 0
-    scenario_data = load_json(args.scenario)
+    scenario_paths = _resolve_batch_scenarios(args)
+    scenario_data = load_json(scenario_paths[0])
     batch_seed = args.seed if args.seed is not None else int(scenario_data.get("battle_options", {}).get("seed", 0))
+    shuffled_scenarios = list(scenario_paths)
+    random.Random(batch_seed).shuffle(shuffled_scenarios)
     strategies = {
         "strategy_a": args.player1_ai,
         "strategy_b": args.player2_ai,
@@ -152,15 +165,23 @@ def cmd_batch(args: argparse.Namespace) -> int:
             "owner2": {"matches": 0, "wins": 0, "losses": 0, "draws": 0},
         },
     }
+    per_scenario: dict[str, dict[str, dict[str, int | float]]] = {}
 
     for index in range(args.num_sims):
         swapped = index % 2 == 1
+        scenario_path = shuffled_scenarios[index % len(shuffled_scenarios)]
+        scenario_key = scenario_path.name
+        if scenario_key not in per_scenario:
+            per_scenario[scenario_key] = {
+                "strategy_a": {"matches": 0, "wins": 0, "losses": 0, "draws": 0, "total_reward": 0.0},
+                "strategy_b": {"matches": 0, "wins": 0, "losses": 0, "draws": 0, "total_reward": 0.0},
+            }
         sim_seed = _derive_simulation_seed(batch_seed, index)
         strategy_seed_a = _derive_strategy_seed(sim_seed, 11)
         strategy_seed_b = _derive_strategy_seed(sim_seed, 29)
         owner_to_strategy_name = {1: "strategy_a", 2: "strategy_b"} if not swapped else {1: "strategy_b", 2: "strategy_a"}
         simulator = _create_simulator(
-            scenario_path=args.scenario,
+            scenario_path=str(scenario_path),
             owner_to_strategy_path={
                 1: strategies[owner_to_strategy_name[1]],
                 2: strategies[owner_to_strategy_name[2]],
@@ -179,10 +200,13 @@ def cmd_batch(args: argparse.Namespace) -> int:
             side_key = f"owner{owner}"
             totals[strategy_name]["total_reward"] += rewards[owner]
             totals[strategy_name][side_key]["matches"] += 1
+            per_scenario[scenario_key][strategy_name]["matches"] += 1
+            per_scenario[scenario_key][strategy_name]["total_reward"] += rewards[owner]
 
         if summary.winner is None:
             for strategy_name in ("strategy_a", "strategy_b"):
                 totals[strategy_name]["draws"] += 1
+                per_scenario[scenario_key][strategy_name]["draws"] += 1
             for owner, strategy_name in owner_to_strategy_name.items():
                 totals[strategy_name][f"owner{owner}"]["draws"] += 1
         else:
@@ -191,6 +215,8 @@ def cmd_batch(args: argparse.Namespace) -> int:
             loser_strategy = owner_to_strategy_name[loser_owner]
             totals[winner_strategy]["wins"] += 1
             totals[loser_strategy]["losses"] += 1
+            per_scenario[scenario_key][winner_strategy]["wins"] += 1
+            per_scenario[scenario_key][loser_strategy]["losses"] += 1
             totals[winner_strategy][f"owner{summary.winner}"]["wins"] += 1
             totals[loser_strategy][f"owner{loser_owner}"]["losses"] += 1
 
@@ -202,7 +228,10 @@ def cmd_batch(args: argparse.Namespace) -> int:
     strategy_b_owner1 = _build_side_split_stats(totals["strategy_b"]["owner1"])
     strategy_b_owner2 = _build_side_split_stats(totals["strategy_b"]["owner2"])
 
-    print(f"Batch summary: sims={args.num_sims}, side_swap=alternate, batch_seed={batch_seed}")
+    print(
+        f"Batch summary: sims={args.num_sims}, side_swap=alternate, batch_seed={batch_seed}, "
+        f"scenario_count={len(shuffled_scenarios)}"
+    )
     print(
         f"Strategy A: wins={strategy_a_stats.wins}, losses={strategy_a_stats.losses}, draws={strategy_a_stats.draws}, "
         f"win_rate={strategy_a_stats.win_rate:.4f}, "
@@ -218,6 +247,14 @@ def cmd_batch(args: argparse.Namespace) -> int:
         f"as_owner1={strategy_b_owner1.win_rate:.4f}, as_owner2={strategy_b_owner2.win_rate:.4f}"
     )
     print(f"Average turns per simulation: {total_turns / args.num_sims:.4f}")
+    for scenario_key in sorted(per_scenario):
+        scenario_a = _build_per_scenario_stats(per_scenario[scenario_key]["strategy_a"])
+        scenario_b = _build_per_scenario_stats(per_scenario[scenario_key]["strategy_b"])
+        print(
+            f"Scenario {scenario_key}: "
+            f"A win_rate={scenario_a['win_rate']:.4f}, mean_reward={scenario_a['mean_reward']:.4f}; "
+            f"B win_rate={scenario_b['win_rate']:.4f}, mean_reward={scenario_b['mean_reward']:.4f}"
+        )
     if args.stats:
         turns_per_second = total_turns / elapsed_seconds if elapsed_seconds > 0 else None
         print(
@@ -231,6 +268,9 @@ def cmd_batch(args: argparse.Namespace) -> int:
         "num_sims": args.num_sims,
         "batch_seed": batch_seed,
         "side_swap_policy": "alternate_players_each_sim",
+        "scenario_source": "scenario_set" if args.scenario_set else "single_scenario",
+        "scenario_count": len(shuffled_scenarios),
+        "scenario_ids": [path.name for path in shuffled_scenarios],
         "average_turns_per_sim": total_turns / args.num_sims,
         "strategies": {
             "strategy_a": _strategy_summary_to_dict(
@@ -245,6 +285,13 @@ def cmd_batch(args: argparse.Namespace) -> int:
                 owner1=strategy_b_owner1,
                 owner2=strategy_b_owner2,
             ),
+        },
+        "per_scenario": {
+            scenario_key: {
+                "strategy_a": _build_per_scenario_stats(per_scenario[scenario_key]["strategy_a"]),
+                "strategy_b": _build_per_scenario_stats(per_scenario[scenario_key]["strategy_b"]),
+            }
+            for scenario_key in sorted(per_scenario)
         },
     }
     if args.stats:
@@ -326,6 +373,20 @@ def _strategy_summary_to_dict(
         **_player_batch_stats_to_dict(stats),
         "as_owner1": _side_split_to_dict(owner1),
         "as_owner2": _side_split_to_dict(owner2),
+    }
+
+
+def _build_per_scenario_stats(bucket: dict[str, int | float]) -> dict[str, object]:
+    matches = int(bucket["matches"])
+    win_rate = (int(bucket["wins"]) / matches) if matches > 0 else 0.0
+    mean_reward = (float(bucket["total_reward"]) / matches) if matches > 0 else 0.0
+    return {
+        "matches": matches,
+        "wins": int(bucket["wins"]),
+        "losses": int(bucket["losses"]),
+        "draws": int(bucket["draws"]),
+        "win_rate": round(win_rate, 6),
+        "mean_reward": round(mean_reward, 6),
     }
 
 

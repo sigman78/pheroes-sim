@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "battlefield": { "width": 8, "height": 6, "round_limit": 40 },
+  "battle_options": { "seed": 110 },
+  "creatures": {
+    "pikeman": { "attack": 4, "defense": 5, "min_damage": 1, "max_damage": 3, "health": 10, "speed": 4, "initiative": 6 },
+    "archer": { "attack": 6, "defense": 3, "min_damage": 2, "max_damage": 4, "health": 8, "speed": 4, "initiative": 7, "shots": 8, "abilities": ["limited_shots"] },
+    "harpy": { "attack": 6, "defense": 5, "min_damage": 2, "max_damage": 4, "health": 14, "speed": 7, "initiative": 8, "abilities": ["flying", "no_retaliation"] }
+  },
+  "armies": [
+    { "owner": 1, "stacks": [
+      { "stack_id": "p1_archers", "creature": "archer", "count": 10, "position": { "q": 1, "r": 1 } },
+      { "stack_id": "p1_pikemen", "creature": "pikeman", "count": 20, "position": { "q": 1, "r": 4 } },
+      { "stack_id": "p1_harpies", "creature": "harpy", "count": 3, "position": { "q": 0, "r": 2 } }
+    ]},
+    { "owner": 2, "stacks": [
+      { "stack_id": "p2_archers", "creature": "archer", "count": 10, "position": { "q": 6, "r": 1 } },
+      { "stack_id": "p2_pikemen", "creature": "pikeman", "count": 14, "position": { "q": 6, "r": 4 } },
+      { "stack_id": "p2_harpies", "creature": "harpy", "count": 8, "position": { "q": 7, "r": 2 } }
+    ]}
+  ]
+}

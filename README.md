@@ -46,3 +46,14 @@ uv run pheroes-sim batch \
   --num-sims 100 \
   --stats
 ```
+
+Rotating scenario set:
+
+```bash
+uv run pheroes-sim batch \
+  --scenario-set examples/scenario_sets/core \
+  --player1-ai examples/player1_ai.json \
+  --player2-ai examples/player2_ai.json \
+  --num-sims 200 \
+  --seed 123
+```

@@ -134,6 +134,44 @@ class CliTests(unittest.TestCase):
         self.assertIn("Batch stats:", result.stdout)
         self.assertNotIn("ASCII BOARD", result.stdout)
 
+    def test_cli_batch_scenario_set_outputs_per_scenario_summary(self) -> None:
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(ROOT / "src")
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pheroes_sim.cli",
+                "batch",
+                "--scenario-set",
+                str(ROOT / "examples" / "scenario_sets" / "core"),
+                "--player1-ai",
+                str(ROOT / "examples" / "player1_ai.json"),
+                "--player2-ai",
+                str(ROOT / "examples" / "player2_ai.json"),
+                "--num-sims",
+                "10",
+                "--seed",
+                "321",
+            ],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        lines = [line for line in result.stdout.splitlines() if line.strip()]
+        payload = json.loads(lines[-1])
+        self.assertEqual(payload["scenario_source"], "scenario_set")
+        self.assertEqual(payload["scenario_count"], 10)
+        self.assertEqual(len(payload["scenario_ids"]), 10)
+        self.assertIn("per_scenario", payload)
+        self.assertGreaterEqual(len(payload["per_scenario"]), 1)
+        first_key = next(iter(payload["per_scenario"]))
+        self.assertIn("strategy_a", payload["per_scenario"][first_key])
+        self.assertIn("strategy_b", payload["per_scenario"][first_key])
+        self.assertIn("Scenario ", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
