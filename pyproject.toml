@@ -1,5 +1,5 @@
 [project]
-name = "sim-matter"
+name = "pheroes-sim"
 version = "0.1.0"
 description = "Fast tactical hex-grid battle simulator inspired by Heroes-style combat."
 readme = "README.md"
@@ -7,7 +7,7 @@ requires-python = ">=3.13"
 dependencies = []
 
 [project.scripts]
-sim-matter = "sim_matter.cli:main"
+pheroes-sim = "sim_matter.cli:main"
 
 [build-system]
 requires = []

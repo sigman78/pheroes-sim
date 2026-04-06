@@ -1,6 +1,6 @@
-# sim-matter
+# pheroes-sim
 
-`sim-matter` is a `uv`-managed Python library and CLI for deterministic, simulation-friendly tactical battles on a hex grid.
+`pheroes-sim` is a `uv`-managed Python library and CLI for deterministic, simulation-friendly tactical battles on a hex grid.
 
 ## Scope
 
@@ -13,7 +13,7 @@
 ## CLI
 
 ```bash
-uv run sim-matter run \
+uv run pheroes-sim run \
   --scenario examples/scenario_basic.json \
   --player1-ai examples/player1_ai.json \
   --player2-ai examples/player2_ai.json \

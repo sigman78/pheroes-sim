@@ -11,7 +11,7 @@ from .rendering import render_ascii_board
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="sim-matter", description="Heroes-style tactical battle simulator")
+    parser = argparse.ArgumentParser(prog="pheroes-sim", description="Heroes-style tactical battle simulator")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     run_parser = subparsers.add_parser("run", help="Run a battle simulation")
