@@ -35,3 +35,14 @@ Optional runtime flags:
 
 - `--stats` prints human-readable elapsed seconds and turns-per-second to stdout.
 - `--board start|turn|end` prints selectable ASCII board frames to stdout before the final summary JSON.
+
+Batch runner:
+
+```bash
+uv run pheroes-sim batch \
+  --scenario examples/scenario_basic.json \
+  --player1-ai examples/player1_ai.json \
+  --player2-ai examples/player2_ai.json \
+  --num-sims 100 \
+  --stats
+```

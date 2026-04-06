@@ -269,4 +269,5 @@ class BattleSimulator:
                 if enemy.alive and enemy.owner != attacker.owner and enemy.position is not None
             ):
                 modifier *= 0.5
-        return max(1, int(round(attacker.estimated_average_damage() * modifier)))
+        rolled_base = self.rng.randint(attacker.template.min_damage, attacker.template.max_damage) * attacker.count
+        return max(1, int(round(rolled_base * modifier)))

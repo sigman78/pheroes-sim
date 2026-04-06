@@ -59,13 +59,13 @@ def load_scenario(path: str | Path) -> BattleState:
     return BattleState(battlefield=battlefield, stacks=stacks)
 
 
-def load_strategy(path: str | Path) -> Strategy:
+def load_strategy(path: str | Path, *, seed_override: int | None = None) -> Strategy:
     data = load_json(path)
     if data.get("schema_version") != 1:
         raise ValueError("Unsupported AI schema_version")
 
     strategy_type = data["strategy"]
-    seed = int(data.get("seed", 0))
+    seed = int(data.get("seed", 0) if seed_override is None else seed_override)
     if strategy_type == "weighted_heuristic":
         return WeightedHeuristicStrategy(weights={k: float(v) for k, v in data.get("weights", {}).items()}, seed=seed)
     if strategy_type == "random":

@@ -7,10 +7,10 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-NAME = "sim-matter"
+NAME = "pheroes-sim"
 VERSION = "0.1.0"
-WHEEL_NAME = f"sim_matter-{VERSION}-py3-none-any.whl"
-DIST_INFO = f"sim_matter-{VERSION}.dist-info"
+WHEEL_NAME = f"pheroes-sim-{VERSION}-py3-none-any.whl"
+DIST_INFO = f"pheroes-sim-{VERSION}.dist-info"
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "sim_matter"
 
@@ -32,7 +32,7 @@ def _wheel_file() -> str:
     return "\n".join(
         [
             "Wheel-Version: 1.0",
-            "Generator: sim-matter-local-backend",
+            "Generator: pheroes-sim-local-backend",
             "Root-Is-Purelib: true",
             "Tag: py3-none-any",
             "",
@@ -41,7 +41,7 @@ def _wheel_file() -> str:
 
 
 def _entry_points() -> str:
-    return "\n".join(["[console_scripts]", "sim-matter = sim_matter.cli:main", ""])
+    return "\n".join(["[console_scripts]", "pheroes-sim = pheroes-sim.cli:main", ""])
 
 
 def _record_line(path: str, content: bytes) -> list[str]:

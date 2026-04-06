@@ -7,10 +7,10 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sim_matter.engine import BattleSimulator
-from sim_matter.hexgrid import HexCoord
-from sim_matter.models import Ability, ActionType, ArmyStack, Battlefield, BattleAction, BattleState, CreatureTemplate
-from sim_matter.strategies import StrategyDecision, WeightedHeuristicStrategy
+from pheroes_sim.engine import BattleSimulator
+from pheroes_sim.hexgrid import HexCoord
+from pheroes_sim.models import Ability, ActionType, ArmyStack, Battlefield, BattleAction, BattleState, CreatureTemplate
+from pheroes_sim.strategies import StrategyDecision, WeightedHeuristicStrategy
 
 
 class StaticStrategy:

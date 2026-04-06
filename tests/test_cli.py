@@ -22,7 +22,7 @@ class CliTests(unittest.TestCase):
             [
                 sys.executable,
                 "-m",
-                "sim_matter.cli",
+                "pheroes_sim.cli",
                 "run",
                 "--scenario",
                 str(ROOT / "examples" / "scenario_basic.json"),
@@ -54,7 +54,7 @@ class CliTests(unittest.TestCase):
             [
                 sys.executable,
                 "-m",
-                "sim_matter.cli",
+                "pheroes_sim.cli",
                 "run",
                 "--scenario",
                 str(ROOT / "examples" / "scenario_basic.json"),
@@ -87,6 +87,52 @@ class CliTests(unittest.TestCase):
         self.assertIn("=== ASCII BOARD: END ===", result.stdout)
         self.assertIn("=== ASCII BOARD: TURN", result.stdout)
         self.assertNotIn("ASCII BOARD", log_path.read_text(encoding="utf-8"))
+
+    def test_cli_batch_outputs_summary_json(self) -> None:
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(ROOT / "src")
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pheroes_sim.cli",
+                "batch",
+                "--scenario",
+                str(ROOT / "examples" / "scenario_basic.json"),
+                "--player1-ai",
+                str(ROOT / "examples" / "player1_ai.json"),
+                "--player2-ai",
+                str(ROOT / "examples" / "player2_ai.json"),
+                "--num-sims",
+                "6",
+                "--seed",
+                "123",
+                "--stats",
+            ],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        lines = [line for line in result.stdout.splitlines() if line.strip()]
+        payload = json.loads(lines[-1])
+        self.assertEqual(payload["num_sims"], 6)
+        self.assertEqual(payload["side_swap_policy"], "alternate_players_each_sim")
+        self.assertEqual(payload["batch_seed"], 123)
+        self.assertIn("strategy_a", payload["strategies"])
+        self.assertIn("strategy_b", payload["strategies"])
+        self.assertEqual(
+            payload["strategies"]["strategy_a"]["wins"]
+            + payload["strategies"]["strategy_a"]["losses"]
+            + payload["strategies"]["strategy_a"]["draws"],
+            6,
+        )
+        self.assertIn("as_owner1", payload["strategies"]["strategy_a"])
+        self.assertIn("as_owner2", payload["strategies"]["strategy_a"])
+        self.assertIn("Batch summary:", result.stdout)
+        self.assertIn("Batch stats:", result.stdout)
+        self.assertNotIn("ASCII BOARD", result.stdout)
 
 
 if __name__ == "__main__":

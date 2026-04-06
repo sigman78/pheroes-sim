@@ -7,9 +7,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sim_matter.hexgrid import HexCoord
-from sim_matter.models import ArmyStack, Battlefield, BattleState, CreatureTemplate
-from sim_matter.rendering import render_ascii_board
+from pheroes_sim.hexgrid import HexCoord
+from pheroes_sim.models import ArmyStack, Battlefield, BattleState, CreatureTemplate
+from pheroes_sim.rendering import render_ascii_board
 
 
 class RenderingTests(unittest.TestCase):

@@ -7,7 +7,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from sim_matter.hexgrid import HexCoord, reachable_hexes
+from pheroes_sim.hexgrid import HexCoord, reachable_hexes
 
 
 class HexGridTests(unittest.TestCase):
