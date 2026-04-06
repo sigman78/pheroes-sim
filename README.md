@@ -56,4 +56,30 @@ uv run pheroes-sim batch \
   --player2-ai examples/player2_ai.json \
   --num-sims 200 \
   --seed 123
+
+## Creature Catalogs
+
+Scenarios can reference a shared creature catalog instead of repeating the full roster inline:
+
+```json
+{
+  "schema_version": 1,
+  "battlefield": { "width": 8, "height": 6, "round_limit": 40 },
+  "creature_catalog": "creatures/core.json",
+  "creatures": {
+    "heavy_harpies": {
+      "extends": "harpy",
+      "defense": "+2",
+      "health": "125%"
+    }
+  }
+}
+```
+
+Variant override rules:
+
+- Numeric fields accept absolute integers such as `4`.
+- Numeric fields accept deltas such as `"+2"` or `"-1"`.
+- Numeric fields accept percentages such as `"50%"`, which sets the field to that percentage of the base value.
+- `abilities` is a direct replacement list.
 ```

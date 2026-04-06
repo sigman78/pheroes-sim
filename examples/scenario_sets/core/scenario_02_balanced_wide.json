@@ -1,13 +1,8 @@
 {
   "schema_version": 1,
   "battlefield": { "width": 10, "height": 6, "round_limit": 45 },
+  "creature_catalog": "../../creatures/core.json",
   "battle_options": { "seed": 102 },
-  "creatures": {
-    "pikeman": { "attack": 4, "defense": 5, "min_damage": 1, "max_damage": 3, "health": 10, "speed": 4, "initiative": 6 },
-    "archer": { "attack": 6, "defense": 3, "min_damage": 2, "max_damage": 4, "health": 8, "speed": 4, "initiative": 7, "shots": 8, "abilities": ["limited_shots"] },
-    "griffin": { "attack": 8, "defense": 8, "min_damage": 3, "max_damage": 6, "health": 25, "speed": 6, "initiative": 9, "abilities": ["flying", "double_strike"] },
-    "harpy": { "attack": 6, "defense": 5, "min_damage": 2, "max_damage": 4, "health": 14, "speed": 7, "initiative": 8, "abilities": ["flying", "no_retaliation"] }
-  },
   "armies": [
     { "owner": 1, "stacks": [
       { "stack_id": "p1_archers", "creature": "archer", "count": 10, "position": { "q": 1, "r": 1 } },
