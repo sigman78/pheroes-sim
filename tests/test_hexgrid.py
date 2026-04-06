@@ -1,0 +1,34 @@
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from sim_matter.hexgrid import HexCoord, reachable_hexes
+
+
+class HexGridTests(unittest.TestCase):
+    def test_distance(self) -> None:
+        self.assertEqual(HexCoord(0, 0).distance_to(HexCoord(2, 0)), 2)
+        self.assertEqual(HexCoord(1, 1).distance_to(HexCoord(2, 3)), 3)
+
+    def test_reachable_without_flying(self) -> None:
+        start = HexCoord(1, 1)
+        blocked = {HexCoord(2, 1)}
+        reachable = reachable_hexes(start, width=5, height=5, move_range=2, blocked=blocked)
+        self.assertIn(HexCoord(1, 3), reachable)
+        self.assertNotIn(HexCoord(2, 1), reachable)
+
+    def test_reachable_with_flying(self) -> None:
+        start = HexCoord(1, 1)
+        blocked = {HexCoord(2, 1)}
+        reachable = reachable_hexes(start, width=5, height=5, move_range=2, blocked=blocked, flying=True)
+        self.assertIn(HexCoord(3, 1), reachable)
+        self.assertNotIn(HexCoord(2, 1), reachable)
+
+
+if __name__ == "__main__":
+    unittest.main()

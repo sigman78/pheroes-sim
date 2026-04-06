@@ -1,0 +1,6 @@
+.uv-cache/
+.tmp-tests/
+.tmp-uv/
+__pycache__/
+*.pyc
+*.jsonl
