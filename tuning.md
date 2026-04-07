@@ -239,6 +239,27 @@ Improvements above this level require code changes:
 
 ---
 
+## New Params Sweep (partial — 2 seeds × 20 sims per matchup)
+
+After implementing 5 code improvements (ranged threat, approach signal, retaliation risk, move cost,
+math fix), swept new params independently against the DEFAULT_PARAMS baseline.
+
+| Param | Values tested | Best | Note |
+|-------|--------------|------|------|
+| w_approach | 0.0, 0.5, 1.0, 2.0, 3.0, 5.0 | **0.5** | High values (3+) collapse WR; 0.5 marginally better than 1.0 |
+| w_retaliation | 0.0, 0.5, 1.0, 1.5, 2.5, 4.0 | **0.5** | Default 1.5 is too high; lower penalty is better |
+| w_move_cost | 0.0, 0.1, 0.3, 0.5, 1.0, 2.0 | **0.0** | Move cost penalty hurts — disable it |
+| ranged_threat_scale | 0.0–1.5 | **0.0** | Flat 0.5131 across all values — ranged threat is neutral in core scenarios |
+| ranged_effective_range | 4.0, 6.0, 8.0 (partial) | 6.0 (tentative) | Sweep incomplete |
+
+**Key insight:** Move cost penalty is actively harmful. Ranged threat has no effect in core scenarios
+(likely because the scenarios don't feature ranged-dominant compositions).
+
+**TODO:** Re-run sweep to completion, then apply best combined params and validate with 5 seeds.
+Candidate: w_approach=0.5, w_retaliation=0.5, w_move_cost=0.0, ranged_threat_scale=0.0.
+
+---
+
 ## Final Parameters (Config K)
 
 ```python
