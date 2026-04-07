@@ -353,37 +353,37 @@ class QStrategy:
 
 DEFAULT_PARAMS: dict[str, float] = {
     # action type base weights
-    "w_melee_attack": 3.0,
-    "w_ranged_attack": 2.5,
+    "w_melee_attack": 5.0,
+    "w_ranged_attack": 4.5,
     "w_move": 0.5,
-    "w_wait": -1.0,
-    "w_defend": -0.3,
+    "w_wait": -2.0,
+    "w_defend": -1.0,
     # kill curve
     "kill_steepness": 8.0,
-    "kill_midpoint": 0.7,
+    "kill_midpoint": 0.3,
     # preservation curve
-    "preserve_decay_rate": 3.0,
+    "preserve_decay_rate": 0.1,
     # score composition
-    "w_kill": 2.0,
-    "w_role": 1.0,
+    "w_kill": 12.0,
+    "w_role": 2.0,
     # posture thresholds
-    "aggression_hp_threshold": 1.5,
-    "defensive_hp_threshold": 0.7,
-    "kite_ranged_fraction": 0.5,
+    "aggression_hp_threshold": 0.9,
+    "defensive_hp_threshold": 0.4,
+    "kite_ranged_fraction": 0.35,
     # posture multipliers
-    "aggression_kill_multiplier": 1.4,
+    "aggression_kill_multiplier": 3.0,
     "defensive_role_multiplier": 1.5,
     "kite_preserve_multiplier": 1.5,
     # role classification
     "tank_defense_above_mean_by": 1.0,
     "tank_health_pool_above_mean_by": 0.3,
     # role fulfillment scores
-    "flanker_priority_score": 1.0,
-    "flanker_nonpriority_score": 0.5,
-    "artillery_safe_score": 1.0,
-    "artillery_exposed_score": 0.0,
+    "flanker_priority_score": 1.5,
+    "flanker_nonpriority_score": 0.1,
+    "artillery_safe_score": 1.2,
+    "artillery_exposed_score": -1.5,
     "barrier_adjacent_friendly_score": 1.0,
-    "barrier_other_score": 0.3,
+    "barrier_other_score": 0.1,
     "generalist_score": 0.5,
 }
 

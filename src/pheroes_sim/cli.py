@@ -165,6 +165,7 @@ def build_parser() -> argparse.ArgumentParser:
     tourn_parser.add_argument("--num-sims", type=int, default=100, help="Simulations per pair")
     tourn_parser.add_argument("--seed", type=int, default=0, help="Base seed for reproducibility")
     tourn_parser.add_argument("--stats", action="store_true", help="Print timing info")
+    tourn_parser.add_argument("--ranks", action="store_true", help="Print plain-text rankings (winner first) instead of JSON")
     tourn_parser.add_argument("--reward-config", help="Optional reward weights JSON")
     tourn_parser.add_argument("--summary-out", help="Optional path to write summary JSON")
 
@@ -695,7 +696,11 @@ def cmd_tournament(args: argparse.Namespace) -> int:
     }
     if args.stats:
         payload["elapsed"] = round(elapsed_seconds, 6)
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    if getattr(args, "ranks", False):
+        for s in standings:
+            print(f"{s.strategy_id} {round(s.elo, 4)} {round(s.win_rate, 6)}")
+    else:
+        print(json.dumps(payload, indent=2, sort_keys=True))
     _write_summary_out(args.summary_out, payload)
     return 0
 
