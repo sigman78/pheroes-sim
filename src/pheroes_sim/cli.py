@@ -2,15 +2,119 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+from dataclasses import dataclass
 from pathlib import Path
 import random
 from time import perf_counter
 
-from .batching import PlayerBatchStats, SideSplitStats, normal_approximation_ci
+from .batching import (
+    EloRatings,
+    MatchupStats,
+    PlayerBatchStats,
+    SideSplitStats,
+    StrategyStandings,
+    expected_score,
+    normal_approximation_ci,
+    update_elo,
+)
 from .engine import BattleSimulator
 from .io import JsonlLogger, list_scenario_files, load_json, load_reward_tracker, load_scenario, load_strategy
 from .rendering import render_ascii_board
 from .strategies import list_available_strategy_ids
+
+
+@dataclass
+class _SimResult:
+    winner_strategy: str | None  # strategy_a_id, strategy_b_id, or None (draw)
+    reward_a: float
+    reward_b: float
+
+
+def _resolve_scenarios(args: argparse.Namespace) -> list[Path]:
+    if getattr(args, "scenario", None):
+        return [Path(args.scenario)]
+    return list_scenario_files(args.scenario_set)
+
+
+def _run_matchup(
+    strategy_a_id: str,
+    strategy_b_id: str,
+    scenarios: list[Path],
+    num_sims: int,
+    base_seed: int,
+    reward_config_path: str | None,
+    *,
+    sim_index_offset: int = 0,
+) -> list[_SimResult]:
+    results: list[_SimResult] = []
+    for i in range(num_sims):
+        swapped = i % 2 == 1
+        scenario_path = scenarios[(sim_index_offset + i) % len(scenarios)]
+        sim_seed = _derive_simulation_seed(base_seed, sim_index_offset + i)
+        seed_a = _derive_strategy_seed(sim_seed, 11)
+        seed_b = _derive_strategy_seed(sim_seed, 29)
+        owner_to_strategy = {1: strategy_b_id, 2: strategy_a_id} if swapped else {1: strategy_a_id, 2: strategy_b_id}
+        simulator = _create_simulator(
+            scenario_path=str(scenario_path),
+            owner_to_strategy_id={
+                1: owner_to_strategy[1],
+                2: owner_to_strategy[2],
+            },
+            owner_to_seed={
+                1: seed_a if owner_to_strategy[1] == strategy_a_id else seed_b,
+                2: seed_a if owner_to_strategy[2] == strategy_a_id else seed_b,
+            },
+            reward_config_path=reward_config_path,
+            simulation_seed=sim_seed,
+        )
+        summary, rewards = simulator.run()
+        # map owner → strategy name
+        owner_to_name = {v: k for k, v in owner_to_strategy.items()}
+        reward_a = rewards[owner_to_name[strategy_a_id]]
+        reward_b = rewards[owner_to_name[strategy_b_id]]
+        if summary.winner is None:
+            winner_strategy = None
+        else:
+            winner_strategy = owner_to_strategy[summary.winner]
+        results.append(_SimResult(winner_strategy=winner_strategy, reward_a=reward_a, reward_b=reward_b))
+    return results
+
+
+def _build_matchup_stats(
+    challenger_id: str,
+    opponent_id: str,
+    results: list[_SimResult],
+) -> MatchupStats:
+    wins = sum(1 for r in results if r.winner_strategy == challenger_id)
+    losses = sum(1 for r in results if r.winner_strategy == opponent_id)
+    draws = sum(1 for r in results if r.winner_strategy is None)
+    n = len(results)
+    return MatchupStats(
+        challenger=challenger_id,
+        opponent=opponent_id,
+        num_sims=n,
+        challenger_wins=wins,
+        challenger_losses=losses,
+        draws=draws,
+        challenger_win_rate=wins / n if n > 0 else 0.0,
+        challenger_mean_reward=sum(r.reward_a for r in results) / n if n > 0 else 0.0,
+        opponent_mean_reward=sum(r.reward_b for r in results) / n if n > 0 else 0.0,
+    )
+
+
+def _matchup_stats_to_dict(m: MatchupStats) -> dict[str, object]:
+    return {
+        "challenger": m.challenger,
+        "opponent": m.opponent,
+        "num_sims": m.num_sims,
+        "challenger_wins": m.challenger_wins,
+        "challenger_losses": m.challenger_losses,
+        "draws": m.draws,
+        "challenger_win_rate": round(m.challenger_win_rate, 6),
+        "challenger_mean_reward": round(m.challenger_mean_reward, 6),
+        "opponent_mean_reward": round(m.opponent_mean_reward, 6),
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -38,6 +142,32 @@ def build_parser() -> argparse.ArgumentParser:
     batch_parser.add_argument("--num-sims", type=int, default=100, help="Number of simulations to run")
     batch_parser.add_argument("--seed", type=int, help="Batch seed used to derive per-simulation seeds")
     batch_parser.add_argument("--stats", action="store_true", help="Print batch timing and throughput stats")
+
+    bench_parser = subparsers.add_parser("benchmark", help="Evaluate a strategy against a reference pool")
+    bench_parser.add_argument("--challenger", required=True, help="Strategy ID to evaluate")
+    bench_parser.add_argument("--pool", nargs="+", default=None, help="Reference strategy IDs (default: all except challenger)")
+    bench_scenarios = bench_parser.add_mutually_exclusive_group(required=True)
+    bench_scenarios.add_argument("--scenario", help="Path to scenario JSON")
+    bench_scenarios.add_argument("--scenario-set", help="Directory containing scenario JSON files")
+    bench_parser.add_argument("--num-sims", type=int, default=100, help="Simulations per pool matchup")
+    bench_parser.add_argument("--seed", type=int, default=0, help="Base seed for reproducibility")
+    bench_parser.add_argument("--metric", choices=["win_rate", "reward", "elo"], default="win_rate")
+    bench_parser.add_argument("--metric-only", action="store_true", help="Print only the metric float to stdout")
+    bench_parser.add_argument("--stats", action="store_true", help="Print timing info")
+    bench_parser.add_argument("--reward-config", help="Optional reward weights JSON")
+    bench_parser.add_argument("--summary-out", help="Optional path to write summary JSON")
+
+    tourn_parser = subparsers.add_parser("tournament", help="Round-robin tournament among N strategies")
+    tourn_parser.add_argument("--strategies", nargs="+", required=True, metavar="ID", help="Strategy IDs to compete")
+    tourn_scenarios = tourn_parser.add_mutually_exclusive_group(required=True)
+    tourn_scenarios.add_argument("--scenario", help="Path to scenario JSON")
+    tourn_scenarios.add_argument("--scenario-set", help="Directory containing scenario JSON files")
+    tourn_parser.add_argument("--num-sims", type=int, default=100, help="Simulations per pair")
+    tourn_parser.add_argument("--seed", type=int, default=0, help="Base seed for reproducibility")
+    tourn_parser.add_argument("--stats", action="store_true", help="Print timing info")
+    tourn_parser.add_argument("--reward-config", help="Optional reward weights JSON")
+    tourn_parser.add_argument("--summary-out", help="Optional path to write summary JSON")
+
     return parser
 
 
@@ -392,6 +522,184 @@ def _build_per_scenario_stats(bucket: dict[str, int | float]) -> dict[str, objec
     }
 
 
+def cmd_benchmark(args: argparse.Namespace) -> int:
+    started_at = perf_counter()
+    challenger = args.challenger
+    all_strategies = list_available_strategy_ids()
+    if challenger not in all_strategies:
+        print(f"error: unknown challenger strategy '{challenger}'. Available: {', '.join(all_strategies)}", file=sys.stderr)
+        return 2
+
+    pool: list[str] = args.pool if args.pool is not None else [s for s in all_strategies if s != challenger]
+    if challenger in pool:
+        print(f"WARNING: challenger '{challenger}' found in pool, removing it", file=sys.stderr)
+        pool = [s for s in pool if s != challenger]
+    unknown_pool = [s for s in pool if s not in all_strategies]
+    if unknown_pool:
+        print(f"error: unknown pool strategies: {', '.join(unknown_pool)}", file=sys.stderr)
+        return 2
+    if not pool:
+        print("error: pool is empty after excluding the challenger", file=sys.stderr)
+        return 2
+
+    scenarios = _resolve_scenarios(args)
+    elo = EloRatings([challenger] + pool)
+    matchups: list[MatchupStats] = []
+
+    for opp_idx, opponent in enumerate(pool):
+        results = _run_matchup(
+            challenger,
+            opponent,
+            scenarios,
+            args.num_sims,
+            args.seed,
+            args.reward_config,
+            sim_index_offset=opp_idx * args.num_sims,
+        )
+        for r in results:
+            if r.winner_strategy == challenger:
+                update_elo(elo, challenger, opponent)
+            elif r.winner_strategy == opponent:
+                update_elo(elo, opponent, challenger)
+            else:
+                update_elo(elo, challenger, opponent, draw=True)
+        matchups.append(_build_matchup_stats(challenger, opponent, results))
+
+    if args.metric == "win_rate":
+        metric_value = sum(m.challenger_win_rate for m in matchups) / len(matchups)
+    elif args.metric == "reward":
+        metric_value = sum(m.challenger_mean_reward for m in matchups) / len(matchups)
+    else:  # elo
+        metric_value = elo.ratings[challenger]
+
+    elapsed_seconds = perf_counter() - started_at
+
+    if args.metric_only:
+        print(metric_value)
+        if args.stats:
+            print(f"elapsed: {elapsed_seconds:.6f}s", file=sys.stderr)
+        return 0
+
+    payload: dict[str, object] = {
+        "challenger": challenger,
+        "pool": pool,
+        "metric": args.metric,
+        "metric_value": round(metric_value, 6),
+        "matchups": [_matchup_stats_to_dict(m) for m in matchups],
+        "elo_ratings": {k: round(v, 4) for k, v in elo.ratings.items()},
+    }
+    if args.stats:
+        payload["elapsed"] = round(elapsed_seconds, 6)
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    _write_summary_out(args.summary_out, payload)
+    return 0
+
+
+def cmd_tournament(args: argparse.Namespace) -> int:
+    started_at = perf_counter()
+    strategies: list[str] = args.strategies
+
+    if len(strategies) < 2:
+        print("error: tournament requires at least 2 strategies", file=sys.stderr)
+        return 2
+    if len(set(strategies)) != len(strategies):
+        print("error: duplicate strategy IDs in --strategies", file=sys.stderr)
+        return 2
+    all_strategies = list_available_strategy_ids()
+    unknown = [s for s in strategies if s not in all_strategies]
+    if unknown:
+        print(f"error: unknown strategies: {', '.join(unknown)}", file=sys.stderr)
+        return 2
+
+    scenarios = _resolve_scenarios(args)
+    elo = EloRatings(strategies)
+    pairs = [(strategies[i], strategies[j]) for i in range(len(strategies)) for j in range(i + 1, len(strategies))]
+    win_matrix: dict[str, dict[str, MatchupStats]] = {s: {} for s in strategies}
+    global_offset = 0
+
+    for strat_a, strat_b in pairs:
+        results = _run_matchup(
+            strat_a,
+            strat_b,
+            scenarios,
+            args.num_sims,
+            args.seed,
+            args.reward_config,
+            sim_index_offset=global_offset,
+        )
+        global_offset += args.num_sims
+        for r in results:
+            if r.winner_strategy == strat_a:
+                update_elo(elo, strat_a, strat_b)
+            elif r.winner_strategy == strat_b:
+                update_elo(elo, strat_b, strat_a)
+            else:
+                update_elo(elo, strat_a, strat_b, draw=True)
+        win_matrix[strat_a][strat_b] = _build_matchup_stats(strat_a, strat_b, results)
+        # Invert for strat_b's perspective
+        m = win_matrix[strat_a][strat_b]
+        win_matrix[strat_b][strat_a] = MatchupStats(
+            challenger=strat_b,
+            opponent=strat_a,
+            num_sims=m.num_sims,
+            challenger_wins=m.challenger_losses,
+            challenger_losses=m.challenger_wins,
+            draws=m.draws,
+            challenger_win_rate=m.challenger_losses / m.num_sims if m.num_sims > 0 else 0.0,
+            challenger_mean_reward=m.opponent_mean_reward,
+            opponent_mean_reward=m.challenger_mean_reward,
+        )
+
+    standings: list[StrategyStandings] = []
+    for sid in strategies:
+        opponents = win_matrix[sid]
+        total_wins = sum(m.challenger_wins for m in opponents.values())
+        total_losses = sum(m.challenger_losses for m in opponents.values())
+        total_draws = sum(m.draws for m in opponents.values())
+        total_matches = total_wins + total_losses + total_draws
+        win_rate = total_wins / total_matches if total_matches > 0 else 0.0
+        mean_reward = sum(m.challenger_mean_reward for m in opponents.values()) / len(opponents) if opponents else 0.0
+        standings.append(StrategyStandings(
+            strategy_id=sid,
+            total_wins=total_wins,
+            total_losses=total_losses,
+            total_draws=total_draws,
+            win_rate=win_rate,
+            mean_reward=mean_reward,
+            elo=elo.ratings[sid],
+        ))
+    standings.sort(key=lambda s: s.elo, reverse=True)
+
+    elapsed_seconds = perf_counter() - started_at
+
+    payload: dict[str, object] = {
+        "strategies": strategies,
+        "num_sims_per_pair": args.num_sims,
+        "win_matrix": {
+            sid: {opp: _matchup_stats_to_dict(m) for opp, m in opponents.items()}
+            for sid, opponents in win_matrix.items()
+        },
+        "standings": [
+            {
+                "strategy_id": s.strategy_id,
+                "total_wins": s.total_wins,
+                "total_losses": s.total_losses,
+                "total_draws": s.total_draws,
+                "win_rate": round(s.win_rate, 6),
+                "mean_reward": round(s.mean_reward, 6),
+                "elo": round(s.elo, 4),
+            }
+            for s in standings
+        ],
+        "elo_ratings": {k: round(v, 4) for k, v in elo.ratings.items()},
+    }
+    if args.stats:
+        payload["elapsed"] = round(elapsed_seconds, 6)
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    _write_summary_out(args.summary_out, payload)
+    return 0
+
+
 def main() -> int:
     parser = build_parser()
     try:
@@ -400,6 +708,10 @@ def main() -> int:
             return cmd_run(args)
         if args.command == "batch":
             return cmd_batch(args)
+        if args.command == "benchmark":
+            return cmd_benchmark(args)
+        if args.command == "tournament":
+            return cmd_tournament(args)
         parser.error(f"Unknown command: {args.command}")
         return 2
     except ValueError as exc:
