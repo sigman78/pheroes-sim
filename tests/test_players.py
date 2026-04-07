@@ -15,7 +15,12 @@ from pheroes_sim.strategies import list_available_strategy_ids, load_strategy
 
 class StrategyLoaderTests(unittest.TestCase):
     def test_lists_expected_builtin_strategy_ids(self) -> None:
-        self.assertEqual(list_available_strategy_ids(), ["random", "weighted_a", "weighted_b"])
+        ids = list_available_strategy_ids()
+        self.assertIn("random", ids)
+        self.assertIn("weighted_a", ids)
+        self.assertIn("weighted_b", ids)
+        self.assertIn("strategy_q", ids)
+        self.assertEqual(ids, sorted(ids))
 
     def test_unknown_strategy_id_fails_with_available_names(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unknown strategy 'missing_strategy'.*weighted_a"):
