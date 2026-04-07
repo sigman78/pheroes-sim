@@ -6,17 +6,19 @@
 
 - Battle-only simulator
 - Army stacks with curated abilities
-- Pluggable player strategies
+- Pluggable strategies
 - Dense reward tracking
 - Structured JSONL decision and action logs
 
 ## CLI
 
+Strategies are selected by short ids from `src/pheroes_sim/strategies/`. The intended workflow is to copy a strategy module, tweak constants in the same file, save it under a new name, and compare it against a baseline from the CLI.
+
 ```bash
 uv run pheroes-sim run \
   --scenario examples/scenario_basic.json \
-  --player1-ai examples/player1_ai.json \
-  --player2-ai examples/player2_ai.json \
+  --p1 weighted_a \
+  --p2 weighted_b \
   --log battle.jsonl \
   --stats \
   --board start \
@@ -41,8 +43,8 @@ Batch runner:
 ```bash
 uv run pheroes-sim batch \
   --scenario examples/scenario_basic.json \
-  --player1-ai examples/player1_ai.json \
-  --player2-ai examples/player2_ai.json \
+  --p1 weighted_a \
+  --p2 weighted_b \
   --num-sims 100 \
   --stats
 ```
@@ -52,10 +54,13 @@ Rotating scenario set:
 ```bash
 uv run pheroes-sim batch \
   --scenario-set examples/scenario_sets/core \
-  --player1-ai examples/player1_ai.json \
-  --player2-ai examples/player2_ai.json \
+  --p1 weighted_a \
+  --p2 weighted_b \
   --num-sims 200 \
   --seed 123
+```
+
+Available built-in strategies currently include `weighted_a`, `weighted_b`, and `random`.
 
 ## Creature Catalogs
 
@@ -82,4 +87,3 @@ Variant override rules:
 - Numeric fields accept deltas such as `"+2"` or `"-1"`.
 - Numeric fields accept percentages such as `"50%"`, which sets the field to that percentage of the base value.
 - `abilities` is a direct replacement list.
-```

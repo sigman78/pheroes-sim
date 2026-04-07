@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from pheroes_sim.engine import BattleSimulator
 from pheroes_sim.hexgrid import HexCoord
 from pheroes_sim.models import Ability, ActionType, ArmyStack, Battlefield, BattleAction, BattleState, CreatureTemplate
-from pheroes_sim.strategies import StrategyDecision, WeightedHeuristicStrategy
+from pheroes_sim.strategy_core import StrategyDecision, WeightedHeuristicStrategy
 
 
 class StaticStrategy:

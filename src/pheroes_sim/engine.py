@@ -7,7 +7,7 @@ from typing import Any, Callable
 from .hexgrid import reachable_hexes
 from .models import Ability, ActionType, ArmyStack, BattleAction, BattleState
 from .rewards import RewardTracker
-from .strategies import Strategy, StrategyDecision
+from .strategy_core import Strategy, StrategyDecision
 
 
 Observer = Callable[[str, BattleState, dict[str, Any]], None]

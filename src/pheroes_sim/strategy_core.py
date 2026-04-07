@@ -152,3 +152,16 @@ class WeightedHeuristicStrategy:
         else:
             features["move_cost"] = 0.0
         return features
+
+
+def create_random_strategy(*, seed: int = 0, strategy_name: str = "random") -> RandomStrategy:
+    return RandomStrategy(seed=seed, strategy_name=strategy_name)
+
+
+def create_weighted_heuristic_strategy(
+    *,
+    weights: dict[str, float],
+    seed: int = 0,
+    strategy_name: str = "weighted_heuristic",
+) -> WeightedHeuristicStrategy:
+    return WeightedHeuristicStrategy(weights=weights, seed=seed, strategy_name=strategy_name)

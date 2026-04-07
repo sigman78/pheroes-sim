@@ -10,6 +10,7 @@ from .batching import PlayerBatchStats, SideSplitStats, normal_approximation_ci
 from .engine import BattleSimulator
 from .io import JsonlLogger, list_scenario_files, load_json, load_reward_tracker, load_scenario, load_strategy
 from .rendering import render_ascii_board
+from .strategies import list_available_strategy_ids
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,8 +42,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _add_common_simulation_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--player1-ai", required=True, help="Path to player 1 AI JSON")
-    parser.add_argument("--player2-ai", required=True, help="Path to player 2 AI JSON")
+    available = ", ".join(list_available_strategy_ids())
+    parser.add_argument("--p1", required=True, help=f"Strategy id for side 1 ({available})")
+    parser.add_argument("--p2", required=True, help=f"Strategy id for side 2 ({available})")
     parser.add_argument("--reward-config", help="Optional reward weights JSON")
     parser.add_argument("--summary-out", help="Optional path to write summary JSON")
 
@@ -50,7 +52,7 @@ def _add_common_simulation_args(parser: argparse.ArgumentParser) -> None:
 def _create_simulator(
     *,
     scenario_path: str,
-    owner_to_strategy_path: dict[int, str],
+    owner_to_strategy_id: dict[int, str],
     owner_to_seed: dict[int, int] | None,
     reward_config_path: str | None,
     simulation_seed: int,
@@ -59,8 +61,8 @@ def _create_simulator(
     return BattleSimulator(
         state=state,
         strategies={
-            1: load_strategy(owner_to_strategy_path[1], seed_override=None if owner_to_seed is None else owner_to_seed[1]),
-            2: load_strategy(owner_to_strategy_path[2], seed_override=None if owner_to_seed is None else owner_to_seed[2]),
+            1: load_strategy(owner_to_strategy_id[1], seed_override=None if owner_to_seed is None else owner_to_seed[1]),
+            2: load_strategy(owner_to_strategy_id[2], seed_override=None if owner_to_seed is None else owner_to_seed[2]),
         },
         reward_tracker=load_reward_tracker(reward_config_path),
         seed=simulation_seed,
@@ -86,7 +88,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     seed = int(scenario_data.get("battle_options", {}).get("seed", 0))
     simulator = _create_simulator(
         scenario_path=args.scenario,
-        owner_to_strategy_path={1: args.player1_ai, 2: args.player2_ai},
+        owner_to_strategy_id={1: args.p1, 2: args.p2},
         owner_to_seed=None,
         reward_config_path=args.reward_config,
         simulation_seed=seed,
@@ -144,8 +146,8 @@ def cmd_batch(args: argparse.Namespace) -> int:
     shuffled_scenarios = list(scenario_paths)
     random.Random(batch_seed).shuffle(shuffled_scenarios)
     strategies = {
-        "strategy_a": args.player1_ai,
-        "strategy_b": args.player2_ai,
+        "strategy_a": args.p1,
+        "strategy_b": args.p2,
     }
     totals = {
         "strategy_a": {
@@ -182,7 +184,7 @@ def cmd_batch(args: argparse.Namespace) -> int:
         owner_to_strategy_name = {1: "strategy_a", 2: "strategy_b"} if not swapped else {1: "strategy_b", 2: "strategy_a"}
         simulator = _create_simulator(
             scenario_path=str(scenario_path),
-            owner_to_strategy_path={
+            owner_to_strategy_id={
                 1: strategies[owner_to_strategy_name[1]],
                 2: strategies[owner_to_strategy_name[2]],
             },
@@ -267,20 +269,20 @@ def cmd_batch(args: argparse.Namespace) -> int:
     summary_payload = {
         "num_sims": args.num_sims,
         "batch_seed": batch_seed,
-        "side_swap_policy": "alternate_players_each_sim",
+        "side_swap_policy": "alternate_sides_each_sim",
         "scenario_source": "scenario_set" if args.scenario_set else "single_scenario",
         "scenario_count": len(shuffled_scenarios),
         "scenario_ids": [path.name for path in shuffled_scenarios],
         "average_turns_per_sim": total_turns / args.num_sims,
         "strategies": {
             "strategy_a": _strategy_summary_to_dict(
-                label=args.player1_ai,
+                label=args.p1,
                 stats=strategy_a_stats,
                 owner1=strategy_a_owner1,
                 owner2=strategy_a_owner2,
             ),
             "strategy_b": _strategy_summary_to_dict(
-                label=args.player2_ai,
+                label=args.p2,
                 stats=strategy_b_stats,
                 owner1=strategy_b_owner1,
                 owner2=strategy_b_owner2,
@@ -369,7 +371,7 @@ def _strategy_summary_to_dict(
     owner2: SideSplitStats,
 ) -> dict[str, object]:
     return {
-        "config_path": label,
+        "strategy_id": label,
         **_player_batch_stats_to_dict(stats),
         "as_owner1": _side_split_to_dict(owner1),
         "as_owner2": _side_split_to_dict(owner2),
@@ -392,13 +394,16 @@ def _build_per_scenario_stats(bucket: dict[str, int | float]) -> dict[str, objec
 
 def main() -> int:
     parser = build_parser()
-    args = parser.parse_args()
-    if args.command == "run":
-        return cmd_run(args)
-    if args.command == "batch":
-        return cmd_batch(args)
-    parser.error(f"Unknown command: {args.command}")
-    return 2
+    try:
+        args = parser.parse_args()
+        if args.command == "run":
+            return cmd_run(args)
+        if args.command == "batch":
+            return cmd_batch(args)
+        parser.error(f"Unknown command: {args.command}")
+        return 2
+    except ValueError as exc:
+        parser.exit(2, f"error: {exc}\n")
 
 
 if __name__ == "__main__":

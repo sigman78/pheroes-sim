@@ -26,10 +26,10 @@ class CliTests(unittest.TestCase):
                 "run",
                 "--scenario",
                 str(ROOT / "examples" / "scenario_basic.json"),
-                "--player1-ai",
-                str(ROOT / "examples" / "player1_ai.json"),
-                "--player2-ai",
-                str(ROOT / "examples" / "player2_ai.json"),
+                "--p1",
+                "weighted_a",
+                "--p2",
+                "weighted_b",
                 "--log",
                 str(log_path),
             ],
@@ -58,10 +58,10 @@ class CliTests(unittest.TestCase):
                 "run",
                 "--scenario",
                 str(ROOT / "examples" / "scenario_basic.json"),
-                "--player1-ai",
-                str(ROOT / "examples" / "player1_ai.json"),
-                "--player2-ai",
-                str(ROOT / "examples" / "player2_ai.json"),
+                "--p1",
+                "weighted_a",
+                "--p2",
+                "weighted_b",
                 "--log",
                 str(log_path),
                 "--stats",
@@ -99,10 +99,10 @@ class CliTests(unittest.TestCase):
                 "batch",
                 "--scenario",
                 str(ROOT / "examples" / "scenario_basic.json"),
-                "--player1-ai",
-                str(ROOT / "examples" / "player1_ai.json"),
-                "--player2-ai",
-                str(ROOT / "examples" / "player2_ai.json"),
+                "--p1",
+                "weighted_a",
+                "--p2",
+                "weighted_b",
                 "--num-sims",
                 "6",
                 "--seed",
@@ -118,7 +118,7 @@ class CliTests(unittest.TestCase):
         lines = [line for line in result.stdout.splitlines() if line.strip()]
         payload = json.loads(lines[-1])
         self.assertEqual(payload["num_sims"], 6)
-        self.assertEqual(payload["side_swap_policy"], "alternate_players_each_sim")
+        self.assertEqual(payload["side_swap_policy"], "alternate_sides_each_sim")
         self.assertEqual(payload["batch_seed"], 123)
         self.assertIn("strategy_a", payload["strategies"])
         self.assertIn("strategy_b", payload["strategies"])
@@ -145,10 +145,10 @@ class CliTests(unittest.TestCase):
                 "batch",
                 "--scenario-set",
                 str(ROOT / "examples" / "scenario_sets" / "core"),
-                "--player1-ai",
-                str(ROOT / "examples" / "player1_ai.json"),
-                "--player2-ai",
-                str(ROOT / "examples" / "player2_ai.json"),
+                "--p1",
+                "weighted_a",
+                "--p2",
+                "weighted_b",
                 "--num-sims",
                 "10",
                 "--seed",

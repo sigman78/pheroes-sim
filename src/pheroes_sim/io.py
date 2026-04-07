@@ -7,7 +7,8 @@ from typing import Any
 from .hexgrid import HexCoord
 from .models import Ability, ArmyStack, Battlefield, BattleState, CreatureTemplate
 from .rewards import RewardTracker, RewardWeights
-from .strategies import RandomStrategy, Strategy, WeightedHeuristicStrategy
+from .strategies import load_strategy as load_strategy_module
+from .strategy_core import Strategy
 
 NUMERIC_CREATURE_FIELDS = {
     "attack",
@@ -210,18 +211,8 @@ def _build_creature_template(name: str, creature: dict[str, Any]) -> CreatureTem
     )
 
 
-def load_strategy(path: str | Path, *, seed_override: int | None = None) -> Strategy:
-    data = load_json(path)
-    if data.get("schema_version") != 1:
-        raise ValueError("Unsupported AI schema_version")
-
-    strategy_type = data["strategy"]
-    seed = int(data.get("seed", 0) if seed_override is None else seed_override)
-    if strategy_type == "weighted_heuristic":
-        return WeightedHeuristicStrategy(weights={k: float(v) for k, v in data.get("weights", {}).items()}, seed=seed)
-    if strategy_type == "random":
-        return RandomStrategy(seed=seed)
-    raise ValueError(f"Unsupported strategy type: {strategy_type}")
+def load_strategy(strategy_id: str, *, seed_override: int | None = None) -> Strategy:
+    return load_strategy_module(strategy_id, seed_override=seed_override)
 
 
 def load_reward_tracker(path: str | Path | None = None) -> RewardTracker:
