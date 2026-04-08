@@ -47,10 +47,20 @@ def load_scenario_data(data: dict[str, Any], *, base_path: str | Path | None = N
         raise ValueError("Unsupported scenario schema_version")
 
     battlefield_data = data["battlefield"]
+    walls = frozenset(
+        HexCoord(int(c[0]), int(c[1]))
+        for c in battlefield_data.get("walls", [])
+    )
+    rocks = frozenset(
+        HexCoord(int(c[0]), int(c[1]))
+        for c in battlefield_data.get("rocks", [])
+    )
     battlefield = Battlefield(
         width=int(battlefield_data["width"]),
         height=int(battlefield_data["height"]),
         round_limit=int(battlefield_data.get("round_limit", 50)),
+        walls=walls,
+        rocks=rocks,
     )
 
     creature_library = _load_creature_library(data, base_path=Path(base_path) if base_path is not None else None)

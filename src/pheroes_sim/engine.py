@@ -4,7 +4,7 @@ import random
 from dataclasses import asdict
 from typing import Any, Callable
 
-from .hexgrid import reachable_hexes
+from .hexgrid import hex_line_of_sight, reachable_hexes
 from .models import Ability, ActionType, ArmyStack, BattleAction, BattleState
 from .rewards import RewardTracker
 from .strategy_core import Strategy, StrategyDecision
@@ -135,14 +135,23 @@ class BattleSimulator:
         enemy_owner = 2 if actor.owner == 1 else 1
         enemy_ids = self.state.living_stack_ids(enemy_owner)
         occupied = self.state.occupied_hexes(exclude_stack_id=actor_id)
+        bf = self.state.battlefield
+        is_flying = Ability.FLYING in actor.template.abilities
+        obstacle_blocked = bf.walls if is_flying else bf.walls | bf.rocks
         reachable = reachable_hexes(
             actor.position,
-            self.state.battlefield.width,
-            self.state.battlefield.height,
+            bf.width,
+            bf.height,
             actor.template.speed,
-            occupied,
-            flying=Ability.FLYING in actor.template.abilities,
+            occupied | obstacle_blocked,
+            flying=is_flying,
         )
+        # Flying units cannot fly through wall hexes; filter by straight-line path
+        if is_flying and bf.walls:
+            reachable = {
+                dest for dest in reachable
+                if hex_line_of_sight(actor.position, dest, bf.walls, bf.width, bf.height)
+            }
 
         actions: list[BattleAction] = []
         adjacent_enemies = {
@@ -170,7 +179,14 @@ class BattleSimulator:
 
         if actor.template.is_ranged and actor.shots_remaining > 0 and not adjacent_enemies:
             for enemy_id in enemy_ids:
-                actions.append(BattleAction(action_type=ActionType.ATTACK_RANGED, actor_id=actor_id, target_id=enemy_id))
+                enemy = self.state.stacks[enemy_id]
+                if enemy.position is None:
+                    continue
+                if hex_line_of_sight(
+                    actor.position, enemy.position,
+                    bf.walls, bf.width, bf.height,
+                ):
+                    actions.append(BattleAction(action_type=ActionType.ATTACK_RANGED, actor_id=actor_id, target_id=enemy_id))
 
         for destination in sorted(reachable):
             actions.append(BattleAction(action_type=ActionType.MOVE, actor_id=actor_id, target_pos=destination))

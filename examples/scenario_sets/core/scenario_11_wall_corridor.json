@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "battlefield": {
+    "width": 9, "height": 6, "round_limit": 45,
+    "walls": [[4, 1], [4, 2], [4, 3], [4, 4]]
+  },
+  "creature_catalog": "../../creatures/core.json",
+  "battle_options": { "seed": 111 },
+  "armies": [
+    { "owner": 1, "stacks": [
+      { "stack_id": "p1_pike_a", "creature": "pikeman", "count": 12, "position": { "q": 1, "r": 1 } },
+      { "stack_id": "p1_pike_b", "creature": "pikeman", "count": 12, "position": { "q": 1, "r": 4 } },
+      { "stack_id": "p1_pike_c", "creature": "pikeman", "count": 10, "position": { "q": 0, "r": 2 } }
+    ]},
+    { "owner": 2, "stacks": [
+      { "stack_id": "p2_pike_a", "creature": "pikeman", "count": 12, "position": { "q": 7, "r": 1 } },
+      { "stack_id": "p2_pike_b", "creature": "pikeman", "count": 12, "position": { "q": 7, "r": 4 } },
+      { "stack_id": "p2_pike_c", "creature": "pikeman", "count": 10, "position": { "q": 8, "r": 2 } }
+    ]}
+  ]
+}

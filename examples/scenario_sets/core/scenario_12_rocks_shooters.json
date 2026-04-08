@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "battlefield": {
+    "width": 9, "height": 6, "round_limit": 45,
+    "rocks": [[3, 2], [4, 2], [5, 2], [4, 3]]
+  },
+  "creature_catalog": "../../creatures/core.json",
+  "battle_options": { "seed": 112 },
+  "armies": [
+    { "owner": 1, "stacks": [
+      { "stack_id": "p1_archers_a", "creature": "archer",    "count": 14, "position": { "q": 1, "r": 1 } },
+      { "stack_id": "p1_archers_b", "creature": "archer",    "count": 10, "position": { "q": 1, "r": 4 } },
+      { "stack_id": "p1_pikemen",   "creature": "pikeman",   "count": 8,  "position": { "q": 0, "r": 2 } }
+    ]},
+    { "owner": 2, "stacks": [
+      { "stack_id": "p2_archers_a", "creature": "archer",    "count": 14, "position": { "q": 7, "r": 1 } },
+      { "stack_id": "p2_archers_b", "creature": "archer",    "count": 10, "position": { "q": 7, "r": 4 } },
+      { "stack_id": "p2_pikemen",   "creature": "pikeman",   "count": 8,  "position": { "q": 8, "r": 2 } }
+    ]}
+  ]
+}

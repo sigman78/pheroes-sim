@@ -163,8 +163,8 @@ class CliTests(unittest.TestCase):
         lines = [line for line in result.stdout.splitlines() if line.strip()]
         payload = json.loads(lines[-1])
         self.assertEqual(payload["scenario_source"], "scenario_set")
-        self.assertEqual(payload["scenario_count"], 10)
-        self.assertEqual(len(payload["scenario_ids"]), 10)
+        self.assertEqual(payload["scenario_count"], 13)
+        self.assertEqual(len(payload["scenario_ids"]), 13)
         self.assertIn("per_scenario", payload)
         self.assertGreaterEqual(len(payload["per_scenario"]), 1)
         first_key = next(iter(payload["per_scenario"]))

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .hexgrid import HexCoord
 from .models import BattleState
 
 
@@ -23,16 +24,22 @@ def render_ascii_board(state: BattleState, label: str) -> BoardFrame:
     }
     legend: list[str] = []
 
-    for r in range(state.battlefield.height):
+    bf = state.battlefield
+    for r in range(bf.height):
         prefix = " " if r % 2 else ""
         cells: list[str] = []
-        for q in range(state.battlefield.width):
-            stack = occupied.get((q, r))
-            if stack is None:
-                cells.append("..")
-                continue
-            symbol = f"{stack.owner}{stack.template.name[:1].upper()}"
-            cells.append(symbol)
+        for q in range(bf.width):
+            coord = HexCoord(q, r)
+            if coord in bf.walls:
+                cells.append("WW")
+            elif coord in bf.rocks:
+                cells.append("##")
+            else:
+                stack = occupied.get((q, r))
+                if stack is None:
+                    cells.append("..")
+                else:
+                    cells.append(f"{stack.owner}{stack.template.name[:1].upper()}")
         rows.append(f"{prefix}{' '.join(cells)}")
 
     for stack_id in state.living_stack_ids():

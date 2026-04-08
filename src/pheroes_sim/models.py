@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from .hexgrid import HexCoord
+from .hexgrid import HexCoord  # noqa: F401 (re-exported for callers)
 
 
 class Ability(StrEnum):
@@ -166,6 +166,8 @@ class Battlefield:
     width: int
     height: int
     round_limit: int = 50
+    walls: frozenset[HexCoord] = field(default_factory=frozenset)
+    rocks: frozenset[HexCoord] = field(default_factory=frozenset)
 
 
 @dataclass(frozen=True, slots=True)

@@ -26,6 +26,42 @@ def in_bounds(coord: HexCoord, width: int, height: int) -> bool:
     return 0 <= coord.q < width and 0 <= coord.r < height
 
 
+def hex_line_of_sight(
+    origin: HexCoord,
+    target: HexCoord,
+    walls: frozenset[HexCoord],
+    width: int,
+    height: int,
+) -> bool:
+    """Return True if no wall hex lies on the straight path from origin to target."""
+    n = origin.distance_to(target)
+    if n == 0:
+        return True
+    oq = origin.q
+    or_ = origin.r
+    os = -oq - or_
+    tq = target.q
+    tr = target.r
+    ts = -tq - tr
+    for i in range(1, n):
+        t = i / n
+        cq = oq + (tq - oq) * t
+        cr = or_ + (tr - or_) * t
+        cs = os + (ts - os) * t
+        rq, rr, rs = round(cq), round(cr), round(cs)
+        dq = abs(rq - cq)
+        dr = abs(rr - cr)
+        ds = abs(rs - cs)
+        if dq > dr and dq > ds:
+            rq = -rr - rs
+        elif dr > ds:
+            rr = -rq - rs
+        hex_ = HexCoord(rq, rr)
+        if in_bounds(hex_, width, height) and hex_ in walls:
+            return False
+    return True
+
+
 def reachable_hexes(
     start: HexCoord,
     width: int,
