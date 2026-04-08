@@ -255,8 +255,120 @@ math fix), swept new params independently against the DEFAULT_PARAMS baseline.
 **Key insight:** Move cost penalty is actively harmful. Ranged threat has no effect in core scenarios
 (likely because the scenarios don't feature ranged-dominant compositions).
 
-**TODO:** Re-run sweep to completion, then apply best combined params and validate with 5 seeds.
-Candidate: w_approach=0.5, w_retaliation=0.5, w_move_cost=0.0, ranged_threat_scale=0.0.
+## New Params Sweep — Phase 2 (5 seeds × 50 sims per matchup)
+
+Comprehensive re-sweep after confirming dead params. Baseline comparison:
+
+```
+Config K (no new signals):  52.3% H2H WR
+Current params (pre-sweep): 55.4% H2H WR  (+3.1pp from new signals)
+Config L (sweep winners):   56.5% H2H WR  (+4.2pp from Config K)
+```
+
+Phase B results (new signals, independent sweep):
+```
+w_approach:    best=1.0 (monotone increase 0.0→1.0, drops at 1.5+)
+w_retaliation: best=2.0 (monotone increase 0.0→2.0, plateau at 2.5, drops at 3.0)
+```
+
+Phase C results (core params — no changes needed):
+```
+w_kill=12:           still optimal
+w_role=2:            still optimal
+kill_midpoint=0.3:   still optimal
+preserve_decay_rate: 0.0 is best (+0.95pp vs 0.1)!
+```
+
+2D grid (w_approach × w_retaliation):
+```
+                 retl=0.00  retl=0.50  retl=1.00  retl=2.00  retl=2.50
+appr=0.0:        0.5245     0.5260     0.5280     0.5340     0.5355
+appr=0.5:        0.5405     0.5420     0.5485     0.5535     0.5530
+appr=1.0:        0.5435     0.5465     0.5505     0.5605     0.5605   <- best
+appr=1.5:        0.5425     0.5425     0.5455     0.5520     0.5490
+```
+Best: w_approach=1.0, w_retaliation=2.0 (current 2.5 is effectively tied, lowered for clarity)
+
+H2H benchmark (Config L, 200 sims, seed=42):
+```
+vs weighted_a: 50.0% WR  (100W/99L/1D)  <- statistically tied
+vs weighted_b: 51.0% WR  (102W/98L)
+```
+
+Weak scenarios:
+- scenario_06_balanced_slow_clash: 10% WR (slow units, long approach — move selection dominant)
+- scenario_10_asymmetric_flyer_edge: 10% WR (flying units — FLANKER targeting suboptimal)
+- scenario_05_balanced_flyers: 30% WR
+
+These three scenarios pull the average down; the remaining 7 show 45-75% WR.
+
+---
+
+## Config L — Current Best (superseded by M)
+
+Changes from Config K:
+- preserve_decay_rate: 0.1 → **0.0** (biggest gain: +0.95pp)
+- w_retaliation: added at **2.0** 
+- w_approach: added at **1.0**
+- w_move_cost, ranged_threat_scale, ranged_effective_range: **removed** (confirmed dead weight)
+
+5-seed H2H WR: **56.5%** (up from 52.3% Config K, +4.2pp)
+
+---
+
+## Bug Fix: Retaliation for NO_RETALIATION targets
+
+Discovered: `retl_s` was computed for all melee targets including harpies (ability: `no_retaliation`).
+Harpy attacks cannot trigger retaliation, so penalizing them was wrong and caused strategy_q to
+prefer attacking non-harpy targets instead of the more dangerous flying units.
+
+Fix: skip retaliation penalty when `Ability.NO_RETALIATION in target.template.abilities`.
+
+Impact: scenario_10_asymmetric_flyer_edge: **10% → 48.5% WR** vs weighted_a (+38.5pp!).
+
+---
+
+## target_value Signal — sweep results
+
+5-seed sweep for w_target_value (5 seeds × 25 sims per matchup):
+```
+w_target_value=0.0:  52.96%
+w_target_value=0.1:  53.30%
+w_target_value=0.5:  53.88%
+w_target_value=0.7:  54.66%
+w_target_value=1.0:  54.82%  <- best
+w_target_value=1.5:  54.80%
+```
+
+Best: **w_target_value=1.0** (+1.86pp over 0.0). Plateau at 1.0-1.5.
+
+---
+
+## Config M — Final (current)
+
+Changes from Config L:
+- `w_target_value`: 0.0 → **1.0** (new signal: prioritize high-stat targets)
+- Retaliation bug fix: skip `retl_s` for `NO_RETALIATION` targets
+
+H2H benchmark (200 sims, seed=42):
+```
+vs weighted_a: 52.5% WR  (105W/95L)
+vs weighted_b: 50.0% WR  (100W/100L)
+```
+
+Per-scenario vs weighted_a (200 dedicated sims each):
+```
+scenario_10_asymmetric_flyer_edge: 48.5% (was 10% in Config K!)
+scenario_06_balanced_slow_clash:   47.0% (was 10% in Config K!)
+```
+
+Tournament (200 sims, seed=42):
+```
+weighted_a 1373.76  WR 70.3%
+weighted_b 1222.07  WR 62.3%
+strategy_q 1080.07  WR 67.0%   <- beats weighted_b by 4.7pp WR
+random      324.10  WR 0.3%
+```
 
 ---
 

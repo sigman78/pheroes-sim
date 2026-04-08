@@ -376,15 +376,23 @@ class QStrategy:
             )
 
         # Retaliation risk: penalize melee attacks against high-damage targets
+        # Skip if target has NO_RETALIATION ability (e.g. harpies)
         retl_s = 0.0
         if action.action_type == ActionType.ATTACK_MELEE and action.target_id is not None:
             target_stack = state.stacks[action.target_id]
-            retl_s = target_stack.estimated_average_damage() / max(1, actor.total_health())
+            if Ability.NO_RETALIATION not in target_stack.template.abilities:
+                retl_s = target_stack.estimated_average_damage() / max(1, actor.total_health())
 
         # Move cost: penalize attacks that require long approach
         move_cost_s = 0.0
         if action.attack_from is not None and actor.position is not None:
             move_cost_s = float(actor.position.distance_to(action.attack_from))
+
+        # Target value: prioritize high-stat enemies (attack + defense + initiative)
+        target_value_s = 0.0
+        if action.target_id is not None:
+            t = state.stacks[action.target_id]
+            target_value_s = float(t.template.attack + t.template.defense + t.template.initiative)
 
         raw = (
             action_bias
@@ -393,6 +401,7 @@ class QStrategy:
             + approach_s * p.get("w_approach", 1.0)
             - retl_s * p.get("w_retaliation", 1.5)
             - move_cost_s * p.get("w_move_cost", 0.3)
+            + target_value_s * p.get("w_target_value", 0.0)
         )
         # Math fix: preserve gate must not reverse sign for negative-raw actions
         score = raw * preserve_s if raw >= 0 else raw
@@ -406,6 +415,7 @@ class QStrategy:
             "approach_score": approach_s,
             "retaliation_score": retl_s,
             "move_cost_score": move_cost_s,
+            "target_value_score": target_value_s,
             "effective_w_kill": effective_w_kill,
             "effective_w_role": effective_w_role,
             "effective_decay": effective_decay,
@@ -430,7 +440,7 @@ DEFAULT_PARAMS: dict[str, float] = {
     "kill_steepness": 8.0,
     "kill_midpoint": 0.3,
     # preservation curve
-    "preserve_decay_rate": 0.1,
+    "preserve_decay_rate": 0.0,
     # score composition
     "w_kill": 12.0,
     "w_role": 2.0,
@@ -455,10 +465,8 @@ DEFAULT_PARAMS: dict[str, float] = {
     "generalist_score": 0.5,
     # new signals
     "w_approach": 1.0,
-    "w_retaliation": 2.5,
-    "w_move_cost": 0.0,
-    "ranged_threat_scale": 0.0,
-    "ranged_effective_range": 6.0,
+    "w_retaliation": 2.0,
+    "w_target_value": 1.0,
 }
 
 STRATEGY_NAME = "strategy_q"

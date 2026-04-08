@@ -371,6 +371,40 @@ class QStrategyIntegrationTests(unittest.TestCase):
         dist_after = best_move.action.target_pos.distance_to(enemy_pos)
         self.assertLess(dist_after, dist_before)
 
+    def test_retaliation_zero_for_no_retaliation_target(self) -> None:
+        # Attacking a target with NO_RETALIATION should not incur retaliation penalty
+        melee_t = _make_template(health=10, speed=1)
+        harpy_t = _make_template(health=10, speed=1, abilities=frozenset({Ability.NO_RETALIATION}))
+        state = BattleState(
+            battlefield=Battlefield(width=8, height=6),
+            stacks={
+                "a": _make_stack("a", 1, melee_t, 5, (0, 0)),
+                "b_normal": _make_stack("b_normal", 2, melee_t, 5, (1, 0)),
+                "b_harpy": _make_stack("b_harpy", 2, harpy_t, 5, (0, 1)),
+            },
+        )
+        p = dict(DEFAULT_PARAMS)
+        p["w_kill"] = 0.0
+        p["w_role"] = 0.0
+        p["w_retaliation"] = 10.0  # very high penalty to make difference obvious
+        strategy = QStrategy(params=p, seed=0)
+        sim = BattleSimulator(state, {1: strategy, 2: strategy})
+        actions = sim.legal_actions("a")
+        decision = strategy.choose_action(state, "a", actions)
+        melee_vs_normal = next(
+            (c.total_score for c in decision.candidate_scores
+             if c.action.action_type == ActionType.ATTACK_MELEE and c.action.target_id == "b_normal"),
+            None,
+        )
+        melee_vs_harpy = next(
+            (c.total_score for c in decision.candidate_scores
+             if c.action.action_type == ActionType.ATTACK_MELEE and c.action.target_id == "b_harpy"),
+            None,
+        )
+        if melee_vs_normal is not None and melee_vs_harpy is not None:
+            # Harpy has no retaliation, so its melee score should be HIGHER (less penalized)
+            self.assertGreater(melee_vs_harpy, melee_vs_normal)
+
     def test_retaliation_lowers_melee_score(self) -> None:
         # Two enemies at equal distance and equal kill potential; higher-damage one scores lower.
         # Use different min/max_damage (not attack stat) since estimated_average_damage uses those.
@@ -436,6 +470,45 @@ class QStrategyIntegrationTests(unittest.TestCase):
         far = [c for c in melee_candidates if actor_pos.distance_to(c.action.attack_from) >= 3]
         if close and far:
             self.assertGreater(max(c.total_score for c in close), max(c.total_score for c in far))
+
+    def test_target_value_prefers_high_stat_enemy(self) -> None:
+        # With equal kill potential, higher stat enemy should score higher with w_target_value > 0
+        melee_t = _make_template(health=10, speed=1)
+        low_stat = CreatureTemplate(
+            name="low", attack=2, defense=2, min_damage=2, max_damage=4, health=10, speed=1, initiative=2
+        )
+        high_stat = CreatureTemplate(
+            name="high", attack=8, defense=8, min_damage=2, max_damage=4, health=10, speed=1, initiative=8
+        )
+        state = BattleState(
+            battlefield=Battlefield(width=8, height=6),
+            stacks={
+                "a": _make_stack("a", 1, melee_t, 5, (0, 0)),
+                "b_low": _make_stack("b_low", 2, low_stat, 5, (1, 0)),
+                "b_high": _make_stack("b_high", 2, high_stat, 5, (0, 1)),
+            },
+        )
+        p = dict(DEFAULT_PARAMS)
+        p["w_kill"] = 0.0
+        p["w_role"] = 0.0
+        p["w_retaliation"] = 0.0
+        p["w_target_value"] = 0.5
+        strategy = QStrategy(params=p, seed=0)
+        sim = BattleSimulator(state, {1: strategy, 2: strategy})
+        actions = sim.legal_actions("a")
+        decision = strategy.choose_action(state, "a", actions)
+        score_vs_low = next(
+            (c.total_score for c in decision.candidate_scores
+             if c.action.action_type == ActionType.ATTACK_MELEE and c.action.target_id == "b_low"),
+            None,
+        )
+        score_vs_high = next(
+            (c.total_score for c in decision.candidate_scores
+             if c.action.action_type == ActionType.ATTACK_MELEE and c.action.target_id == "b_high"),
+            None,
+        )
+        if score_vs_low is not None and score_vs_high is not None:
+            self.assertGreater(score_vs_high, score_vs_low)
 
     def test_wait_score_not_better_at_threatened_hex(self) -> None:
         # Math fix: WAIT (negative raw) must not score higher at threatened hex than at safe hex
